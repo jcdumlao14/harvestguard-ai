@@ -1,0 +1,49 @@
+groups:
+  - name: harvestguard-availability
+    rules:
+      - alert: HarvestGuardApiUnavailable
+        expr: up{job="harvestguard-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: HarvestGuard API is unavailable
+          description: Prometheus cannot scrape the API metrics endpoint.
+
+      - alert: HarvestGuardPrometheusTargetMissing
+        expr: absent(up{job="harvestguard-api"}) == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: HarvestGuard API target is missing
+          description: Prometheus cannot find the HarvestGuard API scrape target.
+
+      - alert: HarvestGuardHighHttp5xxRate
+        expr: |
+          (
+            sum(rate(harvestguard_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(harvestguard_http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: HarvestGuard HTTP 5xx error rate is high
+          description: The HTTP 5xx error rate has exceeded 5 percent for 5 minutes.
+
+      - alert: HarvestGuardHighApiLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(harvestguard_http_request_duration_seconds_bucket[5m])
+            )
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: HarvestGuard API latency is high
+          description: API p95 request latency has exceeded 1 second for 5 minutes.

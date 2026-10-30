@@ -1,4 +1,4 @@
-﻿# Acceptance Criteria
+# Acceptance Criteria
 
 These are proposed requirements. The team must review them and create linked
 GitHub Issues before implementation. Criteria are not considered complete
@@ -33,3 +33,28 @@ A criterion is done only when:
 - Relevant manual checks are recorded.
 - Documentation matches actual behavior.
 - Evidence is linked from the corresponding GitHub Issue.
+
+
+## Observability: Live Alert Delivery and Cleanup
+
+**Acceptance status: PASS**
+
+Verified October 30, 2026, using live Prometheus and Alertmanager services.
+
+| Acceptance requirement | Result |
+|---|---|
+| Prometheus loads the temporary synthetic alert rule | PASS |
+| Alert transitions from pending to firing | PASS |
+| Alertmanager receives the matching alert | PASS |
+| Prometheus clears the synthetic alert | PASS |
+| Alertmanager no longer lists the synthetic alert | PASS |
+| Original four production rules restored | PASS |
+| Prometheus and Alertmanager readiness verified | PASS |
+
+**Test reference:** `hg-live-20261030070721`
+
+**Evidence:** `docs/implementation-evidence.md`
+
+**Limitation:** External email, Telegram, and webhook notification delivery are not included in this verification. The tested receiver was `local-review-only`.
+
+This acceptance result applies to the live alert-delivery and cleanup capability. It does not imply that every HarvestGuard project acceptance criterion is complete.

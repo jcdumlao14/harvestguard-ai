@@ -1,0 +1,21 @@
+﻿name: Manual deployment gate (provider integration required)
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Select deployment environment
+        required: true
+        type: choice
+        options: [development, production]
+permissions:
+  contents: read
+jobs:
+  approval-gate:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail closed until provider action is configured
+        run: |
+          echo "No deployment was performed. Configure a pinned provider-specific deploy action and protected GitHub environment."
+          exit 1

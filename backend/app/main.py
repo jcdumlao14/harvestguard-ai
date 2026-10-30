@@ -1,4 +1,10 @@
-﻿from datetime import date, datetime, time, timedelta, timezone
+from app.observability import install_observability
+from app.oncall_webhook import router as oncall_router
+import os
+from time import perf_counter
+from prometheus_client import Counter, Gauge, Histogram, CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
+from datetime import date, datetime, time, timedelta, timezone
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
@@ -17,13 +23,81 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# HarvestGuard observability and authenticated Alertmanager receiver
+install_observability(app)
+app.include_router(oncall_router)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+    allow_origins=[
+        origin.strip().rstrip("/")
+        for origin in os.getenv(
+            "CORS_ORIGINS",
+            "http://127.0.0.1:5173,http://localhost:5173,"
+            "http://127.0.0.1:5174,http://localhost:5174",
+        ).split(",")
+        if origin.strip()
+    ],
     allow_credentials=False,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+
+# Prometheus application metrics.
+HTTP_REQUESTS = Counter(
+    "harvestguard_http_requests_total",
+    "Total HTTP requests handled by HarvestGuard API.",
+    ["method", "endpoint", "status"],
+)
+
+HTTP_REQUEST_DURATION = Histogram(
+    "harvestguard_http_request_duration_seconds",
+    "HTTP request processing duration in seconds.",
+    ["method", "endpoint"],
+)
+
+HTTP_REQUESTS_IN_PROGRESS = Gauge(
+    "harvestguard_http_requests_in_progress",
+    "Number of HTTP requests currently being processed.",
+)
+
+
+@app.middleware("http")
+async def collect_http_metrics(request, call_next):
+    started = perf_counter()
+    method = request.method
+    HTTP_REQUESTS_IN_PROGRESS.inc()
+    response_status = "500"
+    route_label = request.url.path
+
+    try:
+        response = await call_next(request)
+        response_status = str(response.status_code)
+        route = request.scope.get("route")
+        route_label = getattr(route, "path", route_label)
+        return response
+    finally:
+        HTTP_REQUEST_DURATION.labels(
+            method=method,
+            endpoint=route_label,
+        ).observe(perf_counter() - started)
+        HTTP_REQUESTS.labels(
+            method=method,
+            endpoint=route_label,
+            status=response_status,
+        ).inc()
+        HTTP_REQUESTS_IN_PROGRESS.dec()
+
+
+@app.get("/metrics", include_in_schema=False)
+def prometheus_metrics():
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+    )
+
 
 @app.get("/health")
 def health():

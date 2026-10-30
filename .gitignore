@@ -21,3 +21,8 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 *.backup-*
+
+# Local recovery and bootstrap artifacts
+backups/
+bootstrap-run-output.txt
+ops/secrets/

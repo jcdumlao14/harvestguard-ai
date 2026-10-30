@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: HarvestGuard Dashboards
+    orgId: 1
+    folder: HarvestGuard
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboard-files
