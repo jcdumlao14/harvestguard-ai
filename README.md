@@ -1,4 +1,4 @@
-﻿# HarvestGuard AI
+# HarvestGuard AI
 
 **Smart Food Waste Prevention & Inventory Intelligence**
 
@@ -37,101 +37,60 @@ commands below to verify the current checkout.
 
 ## Architecture
 
-HarvestGuard AI uses a layered architecture that separates the user interface,
-API responsibilities, and data persistence.
+HarvestGuard AI is a full-stack food-waste prevention and inventory intelligence application. Its architecture separates the frontend, backend API, persistence, observability, alerting, and operational workflows.
+
+### System architecture
 
 ```mermaid
 flowchart TB
-    USER(["Food business user"])
+    U[User / Browser] --> FE[React + TypeScript Frontend]
+    FE --> NX[Nginx / Frontend Container]
+    NX --> API[FastAPI Backend]
+    API --> DB[(PostgreSQL Database)]
+    API --> LOG[Structured Application Logs]
+    API --> MET[Prometheus Metrics Endpoint]
+    API --> OTEL[OpenTelemetry Instrumentation]
+    OTEL --> TEMPO[Grafana Tempo]
+    MET --> PROM[Prometheus]
+    PROM --> GRAF[Grafana Dashboards]
+    TEMPO --> GRAF
+    PROM --> AM[Alertmanager]
+    AM --> WH[On-call Alert Webhook]
+    WH --> RP[Responder Policy]
+    RP --> ESC[Escalation Decision / Logs]
+    GH[GitHub Actions] --> CI[Backend Tests and Frontend Build]
+    GH --> MD[Manual Deployment Gate]
+`",
+    ",
+    
 
-    subgraph UI["01 Â· Presentation layer"]
-        direction TB
-        WEB["React 18 Â· TypeScript"]
-        VITE["Vite development server"]
-        WEB --- VITE
-    end
+| Layer | Components | Responsibility |
+|---|---|---|
+| Presentation | React, TypeScript, Vite, Nginx | Inventory interface and API communication |
+| API | FastAPI, Pydantic | Application endpoints and request processing |
+| Persistence | SQLAlchemy, PostgreSQL, Alembic | Data storage and database migrations |
+| Observability | Structured logs, Prometheus metrics, OpenTelemetry | Application monitoring and request correlation |
+| Tracing | Grafana Tempo | Distributed trace collection and inspection |
+| Dashboards | Grafana | Operational metrics and trace visualization |
+| Alerting | Prometheus rules, Alertmanager | Detection and routing of operational alerts |
+| On-call handling | Webhook, responder policy | Alert validation, deduplication, cooldown, and escalation decisions |
+| CI/CD configuration | GitHub Actions | Automated test/build workflow and manual deployment gate |
 
-    subgraph API["02 Â· Application layer"]
-        direction TB
-        FASTAPI["FastAPI REST API"]
-        VALIDATE["Pydantic request and response schemas"]
+### On-call safety boundary
 
-        subgraph SERVICES["Application capabilities"]
-            direction LR
-            INV["Inventory management"]
-            ALERT["Expiry and low-stock alerts"]
-            WASTE["Food-waste records"]
-            ANALYTICS["Analytics summary"]
-        end
+The current responder implementation validates approved alert names, applies deduplication and cooldown rules, and records escalation decisions. It does not autonomously restart containers, modify databases, execute shell commands, or perform automatic infrastructure remediation.
 
-        FASTAPI --- VALIDATE
-        FASTAPI --> INV
-        FASTAPI --> ALERT
-        FASTAPI --> WASTE
-        FASTAPI --> ANALYTICS
-    end
+### Deployment status
 
-    subgraph DATA["03 Â· Persistence layer"]
-        direction TB
-        ORM["SQLAlchemy"]
-        SQLITE[("SQLite Â· default local database")]
-        PG[("PostgreSQL Â· configurable option")]
-        ORM --> SQLITE
-        ORM --> PG
-    end
+The application has a Docker Compose configuration for its local multi-service environment. The manual deployment workflow is a gate requiring provider integration; it does not establish that a public production deployment has occurred.
 
-    subgraph QUALITY["04 Â· Engineering assurance"]
-        direction LR
-        PYTEST["pytest Â· backend tests"]
-        BUILD["TypeScript + Vite build"]
-    end
+### Observability flow
 
-    USER --> WEB
-    WEB <-->|"HTTP Â· JSON"| FASTAPI
-    INV --> ORM
-    ALERT --> ORM
-    WASTE --> ORM
-    ANALYTICS --> ORM
-    PYTEST -. "validates backend behavior" .-> FASTAPI
-    BUILD -. "checks frontend build" .-> WEB
-
-    classDef presentation fill:#E8F3FF,stroke:#3676B8,color:#173B5E,stroke-width:1.5px
-    classDef application fill:#E7F7F0,stroke:#27856D,color:#164C3D,stroke-width:1.5px
-    classDef persistence fill:#F0EBFF,stroke:#8265B8,color:#44336D,stroke-width:1.5px
-    classDef quality fill:#FFF3DC,stroke:#B98225,color:#664512,stroke-width:1.5px
-    classDef user fill:#102B46,stroke:#102B46,color:#FFFFFF,stroke-width:2px
-
-    class USER user
-    class WEB,VITE presentation
-    class FASTAPI,VALIDATE,INV,ALERT,WASTE,ANALYTICS application
-    class ORM,SQLITE,PG persistence
-    class PYTEST,BUILD quality
-
-    style UI fill:#F5FAFF,stroke:#9CC5E8,stroke-width:1px
-    style API fill:#F3FBF7,stroke:#8BCDB8,stroke-width:1px
-    style DATA fill:#F8F5FF,stroke:#B9A8E0,stroke-width:1px
-    style QUALITY fill:#FFFAEF,stroke:#E4C98C,stroke-width:1px
-```
-
-### Local service endpoints
-
-| Component | Local address |
-|---|---|
-| React dashboard | `http://127.0.0.1:5174/` |
-| FastAPI health check | `http://127.0.0.1:8001/health` |
-| Interactive API documentation | `http://127.0.0.1:8001/docs` |
-| Inventory API | `http://127.0.0.1:8001/api/inventory` |
-
-The frontend sends HTTP requests to the FastAPI backend. The backend uses
-SQLAlchemy for database access, with SQLite as its default local database.
-PostgreSQL can be configured through `DATABASE_URL`.
-
-The tests and frontend build are verification activities, not runtime services.
-
-**Deployment note:** Docker Compose files and Dockerfiles are not present in
-the inspected checkout. Container orchestration, production CI/CD, and
-observability should be documented as operational only after implementation
-and verification.
+- Application metrics are exposed for Prometheus scraping.
+- Structured logs include request and trace correlation fields.
+- OpenTelemetry exports traces to Tempo.
+- Grafana provides dashboards using the configured Prometheus and Tempo data sources.
+- Prometheus alert rules route qualifying alerts through Alertmanager to the on-call webhook.
 
 ## Technology stack
 
@@ -154,45 +113,123 @@ considered operational merely because documentation exists.
 
 ## Repository structure
 
+The following tree is generated from the files tracked in the current Git commit. It represents the published repository rather than an earlier starter-project layout.
+
+**Tracked files: 78**
+
 ```text
 harvestguard-ai/
-â”œâ”€â”€ .env.example
-â”œâ”€â”€ .gitignore
-â”œâ”€â”€ AGENTS.md
-â”œâ”€â”€ README.md
-â”œâ”€â”€ backend/
-â”‚   â”œâ”€â”€ .env.example
-â”‚   â”œâ”€â”€ requirements.txt
-â”‚   â”œâ”€â”€ app/
-â”‚   â”‚   â”œâ”€â”€ __init__.py
-â”‚   â”‚   â”œâ”€â”€ database.py
-â”‚   â”‚   â”œâ”€â”€ main.py
-â”‚   â”‚   â”œâ”€â”€ models.py
-â”‚   â”‚   â””â”€â”€ schemas.py
-â”‚   â””â”€â”€ tests/
-â”‚       â””â”€â”€ test_api.py
-â”œâ”€â”€ docs/
-â”‚   â”œâ”€â”€ agents/
-â”‚   â”œâ”€â”€ issues/
-â”‚   â”œâ”€â”€ acceptance-criteria.md
-â”‚   â”œâ”€â”€ architecture.md
-â”‚   â”œâ”€â”€ deployment.md
-â”‚   â”œâ”€â”€ development-process.md
-â”‚   â”œâ”€â”€ incident-response.md
-â”‚   â”œâ”€â”€ observability.md
-â”‚   â”œâ”€â”€ rollback.md
-â”‚   â”œâ”€â”€ specification.md
-â”‚   â””â”€â”€ testing.md
-â””â”€â”€ frontend/
-    â”œâ”€â”€ package.json
-    â”œâ”€â”€ package-lock.json
-    â”œâ”€â”€ index.html
-    â”œâ”€â”€ vite.config.ts
-    â””â”€â”€ src/
-        â”œâ”€â”€ App.tsx
-        â”œâ”€â”€ index.css
-        â””â”€â”€ main.tsx
+|-- .github/
+|   \-- workflows/
+|       |-- ci.yml
+|       \-- deploy-manual.yml
+|-- backend/
+|   |-- app/
+|   |   |-- __init__.py
+|   |   |-- database.py
+|   |   |-- main.py
+|   |   |-- models.py
+|   |   |-- observability.py
+|   |   |-- oncall_webhook.py
+|   |   |-- responder_policy.py
+|   |   \-- schemas.py
+|   |-- migrations/
+|   |   |-- versions/
+|   |   |   \-- 0001_initial_schema.py
+|   |   |-- env.py
+|   |   \-- script.py.mako
+|   |-- tests/
+|   |   |-- test_api.py
+|   |   |-- test_oncall_webhook.py
+|   |   \-- test_responder_policy.py
+|   |-- .env.example
+|   |-- alembic.ini
+|   |-- Dockerfile
+|   \-- requirements.txt
+|-- docs/
+|   |-- agents/
+|   |   |-- phase-bootstrap-addendum.md
+|   |   |-- responder-policy.md
+|   |   \-- team.md
+|   |-- issues/
+|   |   \-- issue-plan.md
+|   |-- acceptance-criteria.md
+|   |-- architecture.md
+|   |-- bootstrap-follow-up.md
+|   |-- deployment.md
+|   |-- development-process.md
+|   |-- implementation-evidence.md
+|   |-- incident-response.md
+|   |-- issue-plan.md
+|   |-- observability.md
+|   |-- phase2-4-6-execution-evidence.md
+|   |-- responder-policy.md
+|   |-- rollback.md
+|   |-- specification.md
+|   |-- team.md
+|   |-- tempo-alerting-execution-evidence.md
+|   \-- testing.md
+|-- frontend/
+|   |-- src/
+|   |   |-- api.ts
+|   |   |-- App.tsx
+|   |   |-- index.css
+|   |   |-- main.tsx
+|   |   |-- vite-env.d.ts
+|   |   \-- WasteManager.tsx
+|   |-- .env.example
+|   |-- Dockerfile
+|   |-- index.html
+|   |-- integrate_inventory_api.py
+|   |-- nginx.conf
+|   |-- package.json
+|   |-- package-lock.json
+|   |-- tsconfig.app.json
+|   |-- tsconfig.json
+|   |-- tsconfig.node.json
+|   \-- vite.config.ts
+|-- ops/
+|   |-- grafana/
+|   |   \-- provisioning/
+|   |       |-- dashboard-files/
+|   |       |   \-- harvestguard-overview.json
+|   |       |-- dashboards/
+|   |       |   \-- provider.yml
+|   |       \-- datasources/
+|   |           |-- prometheus.yml
+|   |           \-- tempo.yml
+|   |-- alertmanager.yml
+|   |-- alerts.yml
+|   |-- prometheus.yml
+|   \-- tempo.yml
+|-- reports/
+|   |-- master-audit-20261030-192549.md
+|   \-- remaining-work-20261030-193418.md
+|-- .dockerignore
+|-- .env.example
+|-- .gitignore
+|-- AGENTS.md
+|-- completion-audit-20261030-154254.txt
+|-- docker-compose.yml
+|-- HarvestGuard-Complete-Remaining.ps1
+|-- HarvestGuard-Complete-Rubric.ps1
+|-- Makefile
+|-- master-health-check.ps1
+\-- README.md
 ```
+
+### Main directories
+
+| Directory | Purpose |
+|---|---|
+| ackend/ | FastAPI application, database models, migrations, observability, responder logic, and backend tests |
+| rontend/ | React and TypeScript user interface, API integration, and frontend build configuration |
+| docs/ | Product specification, architecture, acceptance criteria, agent documentation, operational procedures, and evidence |
+| ops/ | Prometheus, alerting, Alertmanager, Grafana provisioning, dashboards, and Tempo configuration |
+| .github/workflows/ | GitHub Actions CI and manual deployment workflow |
+| eports/ | Project audit and completion reports |
+
+PowerShell automation scripts and the Makefile are maintained at the repository root.
 
 ## Run locally on Windows
 
