@@ -1,4 +1,4 @@
-﻿# HarvestGuard AI
+# HarvestGuard AI
 
 **Smart Food Waste Prevention & Inventory Intelligence**
 
@@ -343,6 +343,65 @@ docker compose config --quiet
 ```
 
 Public deployment is optional and has intentionally been deferred to avoid recurring hosting costs. No public production URL is claimed. GitHub Actions CI is configured to run backend tests and the frontend production build on pull requests and pushes to `main`; it becomes active on GitHub after this workflow is committed and pushed.
+
+## Controlled On-Call Agent Design
+
+HarvestGuard AI uses a controlled, fail-closed on-call design to receive and assess operational alerts. The responder supports incident handling while keeping consequential actions under explicit human control.
+### Controlled on-call architecture and workflow
+
+The diagram distinguishes implemented alert handling from planned investigation and recovery capabilities. Dashed connections represent planned work, not currently operational automation.
+
+```mermaid
+flowchart TD
+    A["Prometheus Alertmanager"] --> B["Alertmanager Webhook"]
+    B --> C{"Bearer token valid?"}
+
+    C -->|No| D["Reject: HTTP 401"]
+    C -->|Yes| E["Validate JSON payload"]
+
+    E --> F{"Payload valid?"}
+    F -->|No| G["Reject: HTTP 400"]
+    F -->|Yes| H["Check alert allowlist"]
+
+    H --> I{"Alert allowlisted?"}
+    I -->|No| J["Reject unknown alert"]
+    I -->|Yes| K{"Alert firing?"}
+
+    K -->|No| L["Observe non-firing or resolved alert"]
+    K -->|Yes| M["Check fingerprint and cooldown"]
+
+    M --> N{"Duplicate alert?"}
+    N -->|Yes| O["Suppress duplicate"]
+    N -->|No| P["Log incident and escalate"]
+
+    P --> Q["Current behavior ends here"]
+    Q -.-> R["PLANNED: Read-only investigation"]
+
+    R -.-> S["PLANNED: Collect bounded evidence"]
+    S -.-> T["PLANNED: Assess impact and findings"]
+    T -.-> U["PLANNED: Recommend recovery action"]
+
+    U -.-> V{"Human approval?"}
+    V -.->|No| W["Reject or defer action"]
+    V -.->|Yes| X["Existing deterministic responder policy (implemented; integration planned)"]
+
+    X -.-> Y{"Policy authorizes action?"}
+    Y -.->|No| Z["Deny and audit decision"]
+    Y -.->|Yes| AA["PLANNED: Approved recovery executor"]
+
+    AA -.-> AB["PLANNED: Verify service recovery"]
+    AB -.-> AC["PLANNED: Record incident closure"]
+
+    classDef implemented fill:#d9f2e6,stroke:#238653,color:#173d2b
+    classDef planned fill:#fff0cc,stroke:#bd861b,color:#543c0c
+    classDef safety fill:#fce1e1,stroke:#b54747,color:#5c2020
+    classDef boundary fill:#e5e7eb,stroke:#596273,color:#202938
+
+    class A,B,E,H,K,M,P,X implemented
+    class D,G,J,O,L safety
+    class Q boundary
+    class R,S,T,U,V,W,Y,Z,AA,AB,AC planned
+```
 
 ## Documentation
 
