@@ -44,14 +44,14 @@ API responsibilities, and data persistence.
 flowchart TB
     USER(["Food business user"])
 
-    subgraph UI["01 Â· Presentation layer"]
+    subgraph UI["01 · Presentation layer"]
         direction TB
-        WEB["React 18 Â· TypeScript"]
+        WEB["React 18 · TypeScript"]
         VITE["Vite development server"]
         WEB --- VITE
     end
 
-    subgraph API["02 Â· Application layer"]
+    subgraph API["02 · Application layer"]
         direction TB
         FASTAPI["FastAPI REST API"]
         VALIDATE["Pydantic request and response schemas"]
@@ -71,23 +71,23 @@ flowchart TB
         FASTAPI --> ANALYTICS
     end
 
-    subgraph DATA["03 Â· Persistence layer"]
+    subgraph DATA["03 · Persistence layer"]
         direction TB
         ORM["SQLAlchemy"]
-        SQLITE[("SQLite Â· default local database")]
-        PG[("PostgreSQL Â· configurable option")]
+        SQLITE[("SQLite · default local database")]
+        PG[("PostgreSQL · configurable option")]
         ORM --> SQLITE
         ORM --> PG
     end
 
-    subgraph QUALITY["04 Â· Engineering assurance"]
+    subgraph QUALITY["04 · Engineering assurance"]
         direction LR
-        PYTEST["pytest Â· backend tests"]
+        PYTEST["pytest · backend tests"]
         BUILD["TypeScript + Vite build"]
     end
 
     USER --> WEB
-    WEB <-->|"HTTP Â· JSON"| FASTAPI
+    WEB <-->|"HTTP · JSON"| FASTAPI
     INV --> ORM
     ALERT --> ORM
     WASTE --> ORM
