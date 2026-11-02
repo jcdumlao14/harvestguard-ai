@@ -154,44 +154,109 @@ considered operational merely because documentation exists.
 
 ## Repository structure
 
+The repository structure below reflects the files tracked in the current Git commit.
+
+**Tracked files: 78**
+
 ```text
 harvestguard-ai/
-â”œâ”€â”€ .env.example
-â”œâ”€â”€ .gitignore
-â”œâ”€â”€ AGENTS.md
-â”œâ”€â”€ README.md
-â”œâ”€â”€ backend/
-â”‚   â”œâ”€â”€ .env.example
-â”‚   â”œâ”€â”€ requirements.txt
-â”‚   â”œâ”€â”€ app/
-â”‚   â”‚   â”œâ”€â”€ __init__.py
-â”‚   â”‚   â”œâ”€â”€ database.py
-â”‚   â”‚   â”œâ”€â”€ main.py
-â”‚   â”‚   â”œâ”€â”€ models.py
-â”‚   â”‚   â””â”€â”€ schemas.py
-â”‚   â””â”€â”€ tests/
-â”‚       â””â”€â”€ test_api.py
-â”œâ”€â”€ docs/
-â”‚   â”œâ”€â”€ agents/
-â”‚   â”œâ”€â”€ issues/
-â”‚   â”œâ”€â”€ acceptance-criteria.md
-â”‚   â”œâ”€â”€ architecture.md
-â”‚   â”œâ”€â”€ deployment.md
-â”‚   â”œâ”€â”€ development-process.md
-â”‚   â”œâ”€â”€ incident-response.md
-â”‚   â”œâ”€â”€ observability.md
-â”‚   â”œâ”€â”€ rollback.md
-â”‚   â”œâ”€â”€ specification.md
-â”‚   â””â”€â”€ testing.md
-â””â”€â”€ frontend/
-    â”œâ”€â”€ package.json
-    â”œâ”€â”€ package-lock.json
-    â”œâ”€â”€ index.html
-    â”œâ”€â”€ vite.config.ts
-    â””â”€â”€ src/
-        â”œâ”€â”€ App.tsx
-        â”œâ”€â”€ index.css
-        â””â”€â”€ main.tsx
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       └── deploy-manual.yml
+├── backend/
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── database.py
+│   │   ├── main.py
+│   │   ├── models.py
+│   │   ├── observability.py
+│   │   ├── oncall_webhook.py
+│   │   ├── responder_policy.py
+│   │   └── schemas.py
+│   ├── migrations/
+│   │   ├── versions/
+│   │   │   └── 0001_initial_schema.py
+│   │   ├── env.py
+│   │   └── script.py.mako
+│   ├── tests/
+│   │   ├── test_api.py
+│   │   ├── test_oncall_webhook.py
+│   │   └── test_responder_policy.py
+│   ├── .env.example
+│   ├── alembic.ini
+│   ├── Dockerfile
+│   └── requirements.txt
+├── docs/
+│   ├── agents/
+│   │   ├── phase-bootstrap-addendum.md
+│   │   ├── responder-policy.md
+│   │   └── team.md
+│   ├── issues/
+│   │   └── issue-plan.md
+│   ├── acceptance-criteria.md
+│   ├── architecture.md
+│   ├── bootstrap-follow-up.md
+│   ├── deployment.md
+│   ├── development-process.md
+│   ├── implementation-evidence.md
+│   ├── incident-response.md
+│   ├── issue-plan.md
+│   ├── observability.md
+│   ├── phase2-4-6-execution-evidence.md
+│   ├── responder-policy.md
+│   ├── rollback.md
+│   ├── specification.md
+│   ├── team.md
+│   ├── tempo-alerting-execution-evidence.md
+│   └── testing.md
+├── frontend/
+│   ├── src/
+│   │   ├── api.ts
+│   │   ├── App.tsx
+│   │   ├── index.css
+│   │   ├── main.tsx
+│   │   ├── vite-env.d.ts
+│   │   └── WasteManager.tsx
+│   ├── .env.example
+│   ├── Dockerfile
+│   ├── index.html
+│   ├── integrate_inventory_api.py
+│   ├── nginx.conf
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   └── vite.config.ts
+├── ops/
+│   ├── grafana/
+│   │   └── provisioning/
+│   │       ├── dashboard-files/
+│   │       │   └── harvestguard-overview.json
+│   │       ├── dashboards/
+│   │       │   └── provider.yml
+│   │       └── datasources/
+│   │           ├── prometheus.yml
+│   │           └── tempo.yml
+│   ├── alertmanager.yml
+│   ├── alerts.yml
+│   ├── prometheus.yml
+│   └── tempo.yml
+├── reports/
+│   ├── master-audit-20261030-192549.md
+│   └── remaining-work-20261030-193418.md
+├── .dockerignore
+├── .env.example
+├── .gitignore
+├── AGENTS.md
+├── completion-audit-20261030-154254.txt
+├── docker-compose.yml
+├── HarvestGuard-Complete-Remaining.ps1
+├── HarvestGuard-Complete-Rubric.ps1
+├── Makefile
+├── master-health-check.ps1
+└── README.md
 ```
 
 ## Run locally on Windows
