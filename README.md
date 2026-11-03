@@ -346,62 +346,97 @@ Public deployment is optional and has intentionally been deferred to avoid recur
 
 ## Controlled On-Call Agent Design
 
-HarvestGuard AI uses a controlled, fail-closed on-call design to receive and assess operational alerts. The responder supports incident handling while keeping consequential actions under explicit human control.
+HarvestGuard AI implements a bounded, fail-closed on-call workflow. The responder receives authenticated Alertmanager notifications, collects read-only operational evidence, assesses incidents deterministically, and requires separate human approval before its fixed nonproduction recovery simulation can execute.
+
 ### Controlled on-call architecture and workflow
 
-The diagram distinguishes implemented alert handling from planned investigation and recovery capabilities. Dashed connections represent planned work, not currently operational automation.
+The following diagram distinguishes implemented capabilities from deployment and operational boundaries.
 
 ```mermaid
 flowchart TD
-    A["Prometheus Alertmanager"] --> B["Alertmanager Webhook"]
+    A["Prometheus Alertmanager"] --> B["Authenticated webhook"]
     B --> C{"Bearer token valid?"}
 
     C -->|No| D["Reject: HTTP 401"]
-    C -->|Yes| E["Validate JSON payload"]
+    C -->|Yes| E["Validate notification payload"]
 
     E --> F{"Payload valid?"}
-    F -->|No| G["Reject: HTTP 400"]
+    F -->|No| G["Reject invalid payload"]
     F -->|Yes| H["Check alert allowlist"]
 
     H --> I{"Alert allowlisted?"}
     I -->|No| J["Reject unknown alert"]
     I -->|Yes| K{"Alert firing?"}
 
-    K -->|No| L["Observe non-firing or resolved alert"]
-    K -->|Yes| M["Check fingerprint and cooldown"]
+    K -->|No| L["Observe resolved notification"]
+    K -->|Yes| M["Duplicate suppression and cooldown"]
 
-    M --> N{"Duplicate alert?"}
-    N -->|Yes| O["Suppress duplicate"]
-    N -->|No| P["Log incident and escalate"]
+    M --> N{"New alert?"}
+    N -->|No| O["Suppress duplicate"]
+    N -->|Yes| P["Bounded read-only investigation"]
 
-    P --> Q["Current behavior ends here"]
-    Q -.-> R["PLANNED: Read-only investigation"]
+    P --> Q["Persist incident evidence"]
+    Q --> R["Deterministic incident assessment"]
 
-    R -.-> S["PLANNED: Collect bounded evidence"]
-    S -.-> T["PLANNED: Assess impact and findings"]
-    T -.-> U["PLANNED: Recommend recovery action"]
+    R --> S{"Complete investigation and evidence-supported assessment?"}
+    S -->|No| T["Retain limited evidence and escalate"]
+    S -->|Yes| U["Authenticated approval request"]
 
-    U -.-> V{"Human approval?"}
-    V -.->|No| W["Reject or defer action"]
-    V -.->|Yes| X["Existing deterministic responder policy (implemented; integration planned)"]
+    U --> V{"Separate human approver?"}
+    V -->|No| W["Reject or defer"]
+    V -->|Yes| X["Record approval decision and audit"]
 
-    X -.-> Y{"Policy authorizes action?"}
-    Y -.->|No| Z["Deny and audit decision"]
-    Y -.->|Yes| AA["PLANNED: Approved recovery executor"]
+    X --> Y{"Approved, unexpired, unused?"}
+    Y -->|No| Z["Deny execution"]
+    Y -->|Yes| AA["Fixed nonproduction simulation"]
 
-    AA -.-> AB["PLANNED: Verify service recovery"]
-    AB -.-> AC["PLANNED: Record incident closure"]
+    AA --> AB{"Simulation verification succeeds?"}
+    AB -->|No| AC["Fail closed and escalate"]
+    AB -->|Yes| AD["Record verified simulation"]
 
     classDef implemented fill:#d9f2e6,stroke:#238653,color:#173d2b
-    classDef planned fill:#fff0cc,stroke:#bd861b,color:#543c0c
     classDef safety fill:#fce1e1,stroke:#b54747,color:#5c2020
     classDef boundary fill:#e5e7eb,stroke:#596273,color:#202938
 
-    class A,B,E,H,K,M,P,X implemented
-    class D,G,J,O,L safety
-    class Q boundary
-    class R,S,T,U,V,W,Y,Z,AA,AB,AC planned
+    class A,B,E,H,K,M,P,Q,R,U,X,AA,AD implemented
+    class D,G,J,O,L,T,W,Z,AC safety
+    class S,V,Y,AB boundary
 ```
+
+### Implemented stages
+
+| Stage | Capability | Implementation boundary |
+|---|---|---|
+| 1 | Authenticated alert ingestion | Allowlisted Alertmanager notifications, payload validation, duplicate suppression, cooldown |
+| 2 | Read-only investigation | Fixed health, Prometheus, and Tempo endpoints; bounded responses and timeouts |
+| 3 | Incident assessment | Deterministic severity, symptoms, likely causes, confidence, and recommendations |
+| 4 | Human approval | Separate authenticated requester and approver, expiry, one-time approval consumption, audit records |
+| 5 | Controlled recovery simulation | Fixed `simulate_health_recovery` action in `nonproduction`; simulated verification only |
+
+### Approval and execution boundary
+
+Approval requests are accepted only when the incident has a complete investigation and an evidence-supported assessment. The assessment must explicitly retain `human_approval_required=true` and `recovery_authorized=false`.
+
+The approval workflow uses separate operator and approver identities. Approval is time-limited, audited, and consumed once. The HTTP API selects the fixed action and environment; clients cannot supply an alternative recovery action or execution adapter.
+
+The current recovery adapter is simulation-only. It does not restart a service or container, modify application data, clear a cache, change Docker configuration, or perform an external recovery operation. A verified simulation is not evidence that an actual service has recovered.
+
+### Fail-closed requirements
+
+- Unknown alerts and invalid authentication are rejected.
+- Incomplete or unavailable evidence cannot qualify for recovery approval.
+- Unknown actions and nonproduction-policy violations are rejected.
+- Requester and approver identities must differ.
+- Missing, rejected, expired, or consumed approval cannot authorize execution.
+- Failed simulation verification or execution errors result in escalation.
+- No arbitrary shell execution, model-generated SQL, or unrestricted business-record access is permitted.
+- Production remediation and automatic approval are not implemented.
+
+### Deployment and verification status
+
+The backend test suite and frontend production build have passed locally. GitHub Actions CI has also passed for the committed CI workflow. These checks demonstrate software and test verification; they do not establish a currently running public deployment.
+
+Public deployment remains intentionally deferred. The recovery implementation is a controlled simulation and must not be represented as production service remediation.
 
 ## Documentation
 
