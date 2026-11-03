@@ -1,5 +1,6 @@
 from app.observability import install_observability
 from app.oncall_webhook import router as oncall_router
+from app.oncall_api import router as oncall_api_router
 import os
 from time import perf_counter
 from prometheus_client import Counter, Gauge, Histogram, CONTENT_TYPE_LATEST, generate_latest
@@ -26,6 +27,7 @@ app = FastAPI(
 # HarvestGuard observability and authenticated Alertmanager receiver
 install_observability(app)
 app.include_router(oncall_router)
+app.include_router(oncall_api_router)
 
 app.add_middleware(
     CORSMiddleware,

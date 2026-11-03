@@ -1,12 +1,10 @@
-﻿# HarvestGuard AI - Alert Responder Policy
+# HarvestGuard AI — Alert Responder Policy
 
 ## Purpose
 
-This document describes the current Alertmanager webhook
-and its permitted behavior.
+This document defines the implemented Alertmanager webhook, read-only investigation, deterministic incident assessment, human approval workflow, and nonproduction recovery simulation.
 
-The current responder evaluates and escalates alerts.
-It is not an autonomous service-repair agent.
+The responder is bounded and fail-closed. It is not an autonomous production repair agent.
 
 ## Webhook
 
@@ -16,74 +14,118 @@ Endpoint:
 
 Authentication:
 
-- Bearer token authentication.
+- Bearer-token authentication.
 - Token is read from `HARVESTGUARD_RESPONDER_TOKEN`.
 - Missing authentication is rejected.
 - Missing authentication configuration fails closed.
 
 ## Approved alert names
 
-- HarvestGuardApiUnavailable
-- HarvestGuardPrometheusTargetMissing
-- HarvestGuardHighHttp5xxRate
-- HarvestGuardHighApiLatency
+- `HarvestGuardApiUnavailable`
+- `HarvestGuardPrometheusTargetMissing`
+- `HarvestGuardHighHttp5xxRate`
+- `HarvestGuardHighApiLatency`
 
-Unknown alert names must not trigger escalation.
+Unknown alert names must not trigger investigation, approval, or recovery.
 
-## Current behavior
+## Implemented alert behavior
 
-The responder:
+The webhook:
 
+- Validates Alertmanager notifications.
 - Evaluates firing notifications.
-- Observes resolved notifications.
+- Observes non-firing or resolved notifications without correlating or closing existing incidents.
 - Rejects unknown alert names.
-- Logs escalation decisions for approved alerts.
 - Applies in-memory duplicate suppression and cooldown.
-- Uses a default cooldown of 300 seconds and minimum of 30 seconds.
+- Keeps duplicate-suppression state in process memory; it is not durable across application restarts.
+- Uses a default cooldown of 300 seconds and a minimum of 30 seconds.
+- Starts bounded read-only investigation for accepted firing alerts.
+- Applies deterministic incident assessment.
+- Persists incident evidence and assessment.
+- Releases the duplicate-suppression entry if incident persistence fails.
 
-## Meaning of escalation
+A policy decision to escalate does not prove that an external notification was delivered, that a human acknowledged the incident, or that a service was repaired.
 
-`decision=escalate` records a policy decision.
+## Read-only investigation
 
-It does not prove that an external notification was delivered,
-a human acknowledged the incident, or a service was repaired.
+The investigation component accesses fixed internal API health, Prometheus, and Tempo endpoints.
 
-## Prohibited current actions
+It uses bounded timeouts, response sizes, and trace-result limits. Redirects are disabled. Alert-supplied URLs and arbitrary Prometheus queries are not accepted.
 
-The webhook does not:
+Investigation status is `complete`, `partial`, or `unavailable`. Only a complete investigation can qualify for the current approval workflow.
+
+## Deterministic assessment
+
+The assessment records severity, symptoms, evidence summaries, likely causes, confidence, and recommendations.
+
+Assessment does not authorize recovery. It requires human approval and retains `recovery_authorized=false`.
+
+## Approval API
+
+The internal approval API uses separately configured operator and approver credentials:
+
+- `HARVESTGUARD_ONCALL_OPERATOR_TOKEN`
+- `HARVESTGUARD_ONCALL_OPERATOR_ID`
+- `HARVESTGUARD_ONCALL_APPROVER_TOKEN`
+- `HARVESTGUARD_ONCALL_APPROVER_ID`
+
+The requester and approver must be different identities. Identity values are derived from server-side configuration, not client-supplied request fields.
+
+The current fixed policy is:
+
+- Action: `simulate_health_recovery`.
+- Environment: `nonproduction`.
+- Approval lifetime: 900 seconds.
+- Approval consumption: one time only.
+
+The API requires a complete investigation, evidence-supported assessment, `human_approval_required=true`, and `recovery_authorized=false`.
+
+## Recovery boundary
+
+The only permitted action is the fixed nonproduction simulation. The API invokes the default simulated adapter; clients cannot supply an adapter.
+
+The simulation does not restart containers, execute shell commands, modify databases, clear caches, or call external service controls.
+
+Simulation verification is not real service recovery verification. Production remediation is not implemented.
+
+## Prohibited behavior
+
+The responder must not:
 
 - Execute arbitrary shell commands.
-- Restart containers.
-- Modify database records.
+- Execute model-generated SQL.
+- Restart containers or services.
+- Delete or modify business records.
 - Delete Docker volumes.
-- Change application configuration.
+- Read, print, or disclose secrets.
+- Change application configuration as a recovery action.
 - Perform autonomous production remediation.
+- Bypass human approval or the deterministic action allowlist.
+- Report actual service recovery based only on a simulation result.
 
-## Evidence to retain
+## Evidence and audit
 
-- Prometheus alert rules.
-- Alertmanager routing configuration.
-- Authenticated webhook test.
-- Unauthenticated request rejection.
-- Unknown alert rejection.
-- Approved firing alert log.
-- Duplicate suppression test.
-- Resolved alert handling.
+Incident, approval, and audit state must contain only necessary diagnostic and authorization information.
 
-## Future remediation requirements
+Never store bearer tokens, credentials, or unrestricted customer records in incident evidence or audit events.
 
-Before automated remediation is enabled:
+## Current implementation status
 
-1. Define a narrow action allowlist.
-2. Apply least-privilege permissions.
-3. Add human approval for high-impact operations.
-4. Add timeouts and retry limits.
-5. Record every action and result.
-6. Test failure and rollback scenarios.
-7. Provide a manual disable mechanism.
+Implemented and locally tested:
 
-## Current status
+- Authenticated Alertmanager webhook.
+- Alert allowlisting and duplicate suppression.
+- Bounded read-only investigation.
+- Deterministic incident assessment.
+- Incident persistence.
+- Separate authenticated human approval.
+- Expiry, one-time consumption, and audit events.
+- Fixed nonproduction recovery simulation and simulation verification.
 
-Implemented: authenticated alert evaluation and escalation.
+Not implemented:
 
-Not implemented: autonomous remediation.
+- Autonomous service remediation.
+- Real service or container restart.
+- Production recovery.
+- Public production deployment.
+- External notification delivery guarantees.

@@ -1,0 +1,61 @@
+services:
+  recovery-test-service:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.recovery-test
+    environment:
+      HARVESTGUARD_RECOVERY_TEST_TOKEN: ${HARVESTGUARD_RECOVERY_TEST_TOKEN:?Set a dedicated recovery-test token in your PowerShell session}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    restart: "no"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import json,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=2); d=json.load(r); assert d.get('service_id') == 'harvestguard-recovery-test'"
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - recovery-test
+
+  recovery-test-runner:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.recovery-test
+    command:
+      - python
+      - -m
+      - app.recovery_test_runner
+    environment:
+      HARVESTGUARD_RECOVERY_TEST_TOKEN: ${HARVESTGUARD_RECOVERY_TEST_TOKEN:?Set a dedicated recovery-test token in your PowerShell session}
+      HARVESTGUARD_RECOVERY_TEST_URL: http://recovery-test-service:8000
+      HARVESTGUARD_RECOVERY_TEST_DB: /tmp/recovery-test.sqlite3
+    depends_on:
+      recovery-test-service:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    restart: "no"
+    networks:
+      - recovery-test
+
+networks:
+  recovery-test:
+    internal: true
