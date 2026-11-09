@@ -1,4 +1,4 @@
-﻿import { API_BASE_URL } from "./api";
+import { API_BASE_URL } from "./api";
 import WasteManager from "./WasteManager";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -49,6 +49,21 @@ const navItems = [
 ];
 
 function App() {
+  const dashboardNow = new Date();
+  const dashboardDate = new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(dashboardNow);
+
+  const dashboardDateLong = new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  }).format(dashboardNow).toUpperCase();
   const [page, setPage] = useState("Overview");
   const [items, setItems] = useState(initialItems);
   const [dataMode, setDataMode] = useState<"loading" | "live" | "demo">("loading");
@@ -75,22 +90,41 @@ function App() {
           stock_value?: number;
         }> = await response.json();
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const manilaDateParts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Manila",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        }).formatToParts(new Date());
+
+        const getManilaPart = (type: string) =>
+          Number(manilaDateParts.find(part => part.type === type)?.value);
+
+        const todayUtc = Date.UTC(
+          getManilaPart("year"),
+          getManilaPart("month") - 1,
+          getManilaPart("day")
+        );
 
         const liveItems: Item[] = records.map((record) => {
-          const expiryDate = record.expiry_date
-            ? new Date(`${record.expiry_date}T00:00:00`)
+          const expiryParts = record.expiry_date?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+          const expiryDate = expiryParts
+            ? new Date(Date.UTC(
+                Number(expiryParts[1]),
+                Number(expiryParts[2]) - 1,
+                Number(expiryParts[3])
+              ))
             : null;
 
           const days = expiryDate
-            ? Math.round((expiryDate.getTime() - today.getTime()) / 86400000)
+            ? Math.round((expiryDate.getTime() - todayUtc) / 86400000)
             : 9999;
 
           let status: Item["status"];
           if (days < 0) status = "Critical";
           else if (days === 0) status = "Critical";
-          else if (days <= 2) status = "Expiring";
+          else if (days <= 3) status = "Expiring";
           else if (record.quantity <= record.reorder_level) status = "Low stock";
           else status = "Healthy";
 
@@ -146,6 +180,42 @@ function App() {
       .sort((a, b) => a.days - b.days),
     [items]
   );
+
+  const expiredItems = useMemo(
+    () => items
+      .filter(item => item.days < 0)
+      .sort((a, b) => b.days - a.days),
+    [items]
+  );
+
+  const lowStockItems = useMemo(
+    () => items.filter(item =>
+      item.lowStock ?? item.status === "Low stock"
+    ),
+    [items]
+  );
+
+  const lowStockOnlyItems = useMemo(
+    () => lowStockItems.filter(item => item.days > 3),
+    [lowStockItems]
+  );
+
+  const attentionItems = useMemo(
+    () => items
+      .filter(item =>
+        item.days < 0 ||
+        (item.days >= 0 && item.days <= 3) ||
+        (item.lowStock ?? item.status === "Low stock")
+      )
+      .sort((a, b) => {
+        const priority = (item: Item) =>
+          item.days < 0 ? 0 : item.days <= 3 ? 1 : 2;
+
+        return priority(a) - priority(b) || a.days - b.days;
+      }),
+    [items]
+  );
+
   const visibleItems = useMemo(() => items.filter((item) => {
     const matchesQuery = `${item.name} ${item.category}`.toLowerCase().includes(query.toLowerCase());
     const matchesFilter = filter === "All items" ||
@@ -207,7 +277,7 @@ function App() {
             <button key={label} className={`nav-item ${page === label ? "active" : ""}`}
               onClick={() => { setPage(label); setMobileNav(false); setNotice(""); }}>
               <Icon size={18} /><span>{label}</span>
-              {label === "Expiry watch" && <span className="nav-count">3</span>}
+              {label === "Expiry watch" && <span className="nav-count">{attentionItems.length}</span>}
             </button>
           ))}
         </nav>
@@ -238,16 +308,16 @@ function App() {
             <div className="demo-pill">
               <span /> {dataMode === "live" ? "API CONNECTED / DEMO" : dataMode === "loading" ? "CONNECTING" : "DEMO DATA"}
             </div>
-            <button className="icon-button notification-button" aria-label="Notifications" onClick={() => setNotice("You have 3 inventory items that need attention.")}><Bell size={19} /><i /></button>
+            <button className="icon-button notification-button" aria-label="Notifications" onClick={() => setNotice(`You have ${attentionItems.length} inventory items that need attention.`)}><Bell size={19} /><i /></button>
             <div className="top-divider" />
-            <div className="today"><CalendarDays size={16} /><span>Oct 29, 2026</span></div>
+            <div className="today"><CalendarDays size={16} /><span>{dashboardDate}</span></div>
           </div>
         </header>
 
         <div className="page-content">
           <div className="page-heading">
             <div>
-              <div className="eyebrow"><span className="eyebrow-dot" /> THURSDAY, OCTOBER 29, 2026</div>
+              <div className="eyebrow"><span className="eyebrow-dot" />{dashboardDateLong}</div>
               <h1>{pageTitle}{page === "Overview" && <span className="wave">!</span>}</h1>
               <p>{pageSubtitle}</p>
             </div>
@@ -263,9 +333,44 @@ function App() {
             <section className="recommendations-page">
               <div className="section-heading"><div><h2>Recommended next actions</h2><p>Suggestions are based on sample inventory expiry and stock signals.</p></div></div>
               <div className="recommendation-grid">
-                <Recommendation icon={<AlertTriangle />} priority="HIGH PRIORITY" title="Review fresh milk expiry" description="The sample inventory lists fresh milk with an approaching expiry. Verify actual quantity, expiry date, and food safety before acting." impact="Verify actual stock first" />
-                <Recommendation icon={<Clock3 />} priority="ACT TODAY" title="Prepare a lettuce special" description="The sample inventory lists romaine lettuce with an approaching expiry. Check actual stock and food safety before planning a special." impact="Verify actual stock first" />
-                <Recommendation icon={<ShoppingBasket />} priority="RESTOCK REVIEW" title="Review low-stock items" description="Check items marked low stock in the inventory table and compare their quantities with expected demand before reordering." impact="Low-stock signal" />
+                {expiredItems.map(item => (
+                  <Recommendation
+                    key={item.id}
+                    icon={<AlertTriangle />}
+                    priority="URGENT REVIEW"
+                    title={`Verify expired stock: ${item.name}`}
+                    description={`Recorded expiry: ${item.expiry}. Confirm the actual quantity and date, then follow applicable food-safety procedures before any use or disposal. Do not sell or serve expired stock.`}
+                    impact="Food-safety verification"
+                  />
+                ))}
+
+                {expiringItems.map(item => (
+                  <Recommendation
+                    key={item.id}
+                    icon={<Clock3 />}
+                    priority={item.days === 0 ? "DUE TODAY" : "EXPIRING SOON"}
+                    title={`Review upcoming expiry: ${item.name}`}
+                    description={`Recorded expiry: ${item.expiry}. Verify actual stock and expiry dates, then plan safe handling before the expiry date.`}
+                    impact="Expiry review"
+                  />
+                ))}
+
+                {lowStockOnlyItems.map(item => (
+                  <Recommendation
+                    key={item.id}
+                    icon={<ShoppingBasket />}
+                    priority="RESTOCK REVIEW"
+                    title={`Review low stock: ${item.name}`}
+                    description={`Current quantity: ${item.quantity} ${item.unit}. Compare with expected demand and verify the reorder level before purchasing.`}
+                    impact="Low-stock signal"
+                  />
+                ))}
+
+                {attentionItems.length === 0 && (
+                  <p className="demo-disclaimer">
+                    No expiry or low-stock recommendations are currently generated from tracked inventory.
+                  </p>
+                )}
               </div>
               <p className="demo-disclaimer">These are rule-based demo suggestions, not verified forecasts. Always check food safety guidance and actual stock before acting.</p>
             </section>
@@ -294,7 +399,23 @@ function App() {
 
               {page === "Overview" && <div className="insight-banner">
                 <div className="insight-icon"><Sparkles size={20} /></div>
-                <div className="insight-copy"><span>HARVESTGUARD INSIGHT <span className="insight-live">DEMO</span></span><strong>{expiringItems.length} items expiring within 3 days</strong><p>Review fresh milk and romaine lettuce first to reduce avoidable waste.</p></div>
+                <div className="insight-copy">
+                  <span>HARVESTGUARD INSIGHT <span className="insight-live">DEMO</span></span>
+                  <strong>
+                    {expiredItems.length > 0
+                      ? `${expiredItems.length} expired items need review`
+                      : `${expiringItems.length} items expiring within 3 days`}
+                  </strong>
+                  <p>
+                    {expiredItems.length > 0
+                      ? `Verify ${expiredItems.map(item => item.name).join(", ")} and follow food-safety procedures before any use or disposal.`
+                      : expiringItems.length > 0
+                        ? `Review ${expiringItems.map(item => item.name).join(", ")} and verify actual stock and expiry dates.`
+                        : lowStockItems.length > 0
+                          ? `${lowStockItems.length} items are at or below their reorder levels. Review stock before purchasing.`
+                          : "No expired, upcoming-expiry, or low-stock items are currently flagged."}
+                  </p>
+                </div>
                 <button className="insight-action" onClick={() => setPage("Recommendations")}>See recommendations <ArrowRight size={16} /></button>
               </div>}
 
@@ -307,22 +428,27 @@ function App() {
                 </section>
 
                 <section className="panel priority-panel">
-                  <div className="panel-heading"><div><h3>Needs attention</h3><p>Items to review first</p></div><span className="count-pill">{expiringItems.length} alerts</span></div>
+                  <div className="panel-heading"><div><h3>Needs attention</h3><p>{expiredItems.length} expired · {expiringItems.length} expiring soon · {lowStockItems.length} low-stock signals</p></div><span className="count-pill">{attentionItems.length} items</span></div>
                   <div className="priority-list">
-                  {expiringItems.map((item) => (
+                  {attentionItems.map((item) => (
                     <div className="priority-item" key={item.id}>
-                      <div className={`priority-symbol ${item.days === 0 ? "red" : "amber"}`}>
-                        {item.days === 0 ? <AlertTriangle size={17} /> : <Clock3 size={17} />}
+                      <div className={`priority-symbol ${item.days <= 0 ? "red" : "amber"}`}>
+                        {item.days <= 0 ? <AlertTriangle size={17} /> : <Clock3 size={17} />}
                       </div>
                       <div className="priority-copy">
                         <strong>{item.name}</strong>
                         <span>
-                          {item.days === 0
-                            ? "Expires today"
-                            : item.days === 1
-                              ? "Expires tomorrow"
-                              : `Expires ${item.expiry}`}
+                          {item.days < 0
+                            ? `Expired ${item.expiry}`
+                            : item.days === 0
+                              ? "Expires today"
+                              : item.days === 1
+                                ? "Expires tomorrow"
+                                : item.days <= 3
+                                  ? `Expires ${item.expiry}`
+                                  : "Low stock — review reorder level"}
                           {" | "}{item.quantity.toLocaleString("en-PH")} {item.unit}
+                          {(item.lowStock ?? item.status === "Low stock") && " | Low stock"}
                         </span>
                         <small>Current stock value: {peso(item.value)}</small>
                       </div>
