@@ -156,7 +156,7 @@ considered operational merely because documentation exists.
 
 The repository structure below reflects the files tracked in the current Git commit.
 
-**Tracked files: 78**
+**Tracked files: 97**
 
 ```text
 harvestguard-ai/
