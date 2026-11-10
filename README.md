@@ -187,15 +187,15 @@ harvestguard-ai/
 │   ├── alembic.ini
 │   ├── Dockerfile
 │   └── requirements.txt
+├── README.md
 ├── docs/
 │   ├── agents/
 │   │   ├── phase-bootstrap-addendum.md
 │   │   ├── responder-policy.md
 │   │   └── team.md
 │   └── images/
-│       ├── harvestguard-dashboard.png
-│       └── grafana-observability.png
-├── README.md
+│   │   ├── harvestguard-dashboard.png
+│   │   └── grafana-observability.png
 │   ├── issues/
 │   │   └── issue-plan.md
 │   ├── acceptance-criteria.md
