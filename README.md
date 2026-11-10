@@ -192,6 +192,10 @@ harvestguard-ai/
 │   │   ├── phase-bootstrap-addendum.md
 │   │   ├── responder-policy.md
 │   │   └── team.md
+│   └── images/
+│       ├── harvestguard-dashboard.png
+│       └── grafana-observability.png
+├── README.md
 │   ├── issues/
 │   │   └── issue-plan.md
 │   ├── acceptance-criteria.md
@@ -347,6 +351,44 @@ Public deployment is optional and has intentionally been deferred to avoid recur
 ## Controlled On-Call Agent Design
 
 HarvestGuard AI implements a bounded, fail-closed on-call workflow. The responder receives authenticated Alertmanager notifications, collects read-only operational evidence, assesses incidents deterministically, and requires separate human approval before its fixed nonproduction recovery simulation can execute.
+
+
+## Application Demo & Observability
+
+### HarvestGuard AI — Inventory Dashboard
+
+<p align="center">
+  <img
+    src="https://github.com/jcdumlao14/harvestguard-ai/blob/main/docs/images/harvestguard_dashboard.png"
+    alt="HarvestGuard AI inventory dashboard showing API-connected demo inventory, expiry alerts, and stock status"
+    width="100%"
+  />
+</p>
+
+<p align="center">
+  <em>
+    HarvestGuard AI dashboard displaying API-connected demo inventory,
+    expired stock alerts, and low-stock indicators.
+    The displayed records are synthetic demonstration data.
+  </em>
+</p>
+
+### Grafana — API Observability Dashboard
+
+<p align="center">
+  <img
+    src="https://github.com/jcdumlao14/harvestguard-ai/blob/main/docs/images/grafana-observability.png"
+    alt="Grafana HarvestGuard API observability dashboard"
+    width="100%"
+  />
+</p>
+
+<p align="center">
+  <em>
+    Grafana observability dashboard for HarvestGuard AI,
+    illustrating the configured application monitoring environment.
+  </em>
+</p>
 
 ### Controlled on-call architecture and workflow
 
